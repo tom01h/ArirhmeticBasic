@@ -8,7 +8,8 @@ Verilatorで検証することを前提に、テストベンチはC++で記述�
 好きな値をかけるには、引数を2個与えます。16進数で FPU フォーマットのデータを入力します。  
 [Berkeley Testfloat](http://www.jhauser.us/arithmetic/TestFloat-3/doc/TestFloat-source.html) を使うには、`testfloat_gen -f32_mul` の出力を `sim/Vfmul_1` の標準入力から入力します。
 
-```$ {PATHto}/testfloat_gen -f32_mul | ./sim/Vfmul_1
+```
+$ {PATHto}/testfloat_gen -f32_mul | ./sim/Vfmul_1
 ```
 
 ## 履歴
