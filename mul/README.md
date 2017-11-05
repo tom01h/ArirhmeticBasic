@@ -14,9 +14,9 @@ Verilatorが使える環境前提ですが、
 - 符号拡張を省略する工夫なしのバージョン [mul_0.v を試す](https://github.com/tom01h/ArirhmeticBasic/tree/9561c709123053e277ffcfa270fe1b4287a8fa39)
 - ループで部分積を足しこむ前のバージョン [mul_1.v を試す](https://github.com/tom01h/ArirhmeticBasic/tree/effeaadcf53c03a44681a21fde629128f38a5413)  
   - 分かりやすさ最優先の記述です
-- 3入力加算器を使って足しこむバージョン [mul_2.v を試す]()
+- 3入力加算器を使って足しこむバージョン [mul_2.v を試す](https://github.com/tom01h/ArirhmeticBasic/tree/71738dc101393e5d2c036393db2068ea56ed745d)
   - 1サイクル毎に2個づつ部分積を減らしていくので、8サイクルで32bitの乗算が完了します
   - パイプライン動作の検証はできません
-- V-Scale で使っている乗算器 mul_3.v が最新です
+- V-Scale で使っている乗算器 [mul_3.v を試す](https://github.com/tom01h/ArirhmeticBasic/tree/f6357876dc8384df1c68a328dceea705b1ca4d32)
   - 5サイクルで32bit乗算が完了します
   - パイプライン動作の検証はできません

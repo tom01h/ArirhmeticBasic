@@ -1,6 +1,6 @@
 #include "unistd.h"
 #include "getopt.h"
-#include "Vfmul_0.h"
+#include "Vfmul_1.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <stdio.h>
@@ -39,7 +39,7 @@ int main(int argc, char **argv, char **env) {
   Verilated::commandArgs(argc, argv);
   Verilated::traceEverOn(true);
   VerilatedVcdC* tfp = new VerilatedVcdC;
-  Vfmul_0* verilator_top = new Vfmul_0;
+  Vfmul_1* verilator_top = new Vfmul_1;
   verilator_top->trace(tfp, 99); // requires explicit max levels param
   tfp->open(vcdfile);
   vluint64_t main_time = 0;
@@ -71,6 +71,9 @@ int main(int argc, char **argv, char **env) {
         y.i = y.i&0x807fffff|(ye<<23);
         expect.f = x.f * y.f;
         flag = -1;
+      }else if(argc==1){
+        if(scanf("%08x %08x %08x %02x", &x.i, &y.i, &expect.i, &flag)==EOF){
+          break;}
       }else{
         expect.f = x.f * y.f;
         flag = -1;
