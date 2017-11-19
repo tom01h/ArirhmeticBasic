@@ -18,18 +18,18 @@ VERILATOR_OPTS = \
 VERILATOR_MAKE_OPTS = OPT_FAST="-O3"
 
 DESIGN_SRCS = \
-fmul_3.v
+fmul_4.v
 
 VERILATOR_CPP_TB = fmul_tb.cpp
 
-default: $(SIM_DIR)/Vfmul_3
+default: $(SIM_DIR)/Vfmul_4
 
-sim: $(SIM_DIR)/Vfmul_3
+sim: $(SIM_DIR)/Vfmul_4
 
-$(SIM_DIR)/Vfmul_3: $(DESIGN_SRCS) $(VERILATOR_CPP_TB)
+$(SIM_DIR)/Vfmul_4: $(DESIGN_SRCS) $(VERILATOR_CPP_TB)
 	$(VERILATOR) $(VERILATOR_OPTS) $(DESIGN_SRCS) --exe ../$(VERILATOR_CPP_TB)
-	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmul_3.mk Vfmul_3__ALL.a
-	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmul_3.mk Vfmul_3
+	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmul_4.mk Vfmul_4__ALL.a
+	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmul_4.mk Vfmul_4
 
 clean:
 	rm -rf sim/ tmp.vcd

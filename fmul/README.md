@@ -3,13 +3,13 @@
 Verilatorで検証することを前提に、テストベンチはC++で記述しています。Verilatorが使える環境前提ですが、
 
 ## 実行法
-`$ make` を実行すると sim/Vfmul_3 が出来ます。  
-`$ sim/Vmul_3` を引数を1個与えて実行すると、引数で与えた回数繰り返してランダムで生成した入力を使った FPU 乗算を実行出来ます。  
+`$ make` を実行すると sim/Vfmul_4 が出来ます。  
+`$ sim/Vmul_4` を引数を1個与えて実行すると、引数で与えた回数繰り返してランダムで生成した入力を使った FPU 乗算を実行出来ます。  
 好きな値をかけるには、引数を2個与えます。16進数で FPU フォーマットのデータを入力します。  
-[Berkeley Testfloat](http://www.jhauser.us/arithmetic/TestFloat-3/doc/TestFloat-source.html) を使うには、`testfloat_gen -f32_mul` の出力を `sim/Vfmul_3` の標準入力から入力します。
+[Berkeley Testfloat](http://www.jhauser.us/arithmetic/TestFloat-3/doc/TestFloat-source.html) を使うには、`testfloat_gen -f32_mul` の出力を `sim/Vfmul_4` の標準入力から入力します。
 
 ```
-$ {PATHto}/testfloat_gen -f32_mul | ./sim/Vfmul_3
+$ {PATHto}/testfloat_gen -f32_mul | ./sim/Vfmul_4
 ```
 
 ## 履歴
@@ -24,5 +24,7 @@ $ {PATHto}/testfloat_gen -f32_mul | ./sim/Vfmul_3
 - サブノーマル数に対応した [fmul_2.v を試す](https://github.com/tom01h/ArirhmeticBasic/tree/bb4559d3afc2c1e403f03e3543225d0061f9c5e2)
   - Berkeley Testfloat をパス
   - 回路化を考えていない
-- ノーマライズシフタを若干変更 fmul_3.v が最新です
+- ノーマライズシフタを若干変更 [fmul_3.v  を試す](https://github.com/tom01h/ArirhmeticBasic/tree/46fc48b46912786aefd9605b0e6deed237e35dee)
   - 高速化目的だったけど、あまり効果なかった
+- V-scale に使っているバージョン fmul_4.v が最新です
+  - パイプライン動作の検証はできません
