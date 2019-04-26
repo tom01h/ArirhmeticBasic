@@ -25,4 +25,4 @@ $ ./sim/Vdsp
 
 ### 構成
 
-![dsp](C:\Users\tom01h\TIL\dsp\dsp.svg)
+![dsp](dsp.svg)
