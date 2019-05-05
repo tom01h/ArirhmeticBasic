@@ -8,8 +8,7 @@ module dsp
    output reg [63:0] resp_result
    );
 
-   reg           x_signed;
-   reg           y_signed;
+   reg           y_signed, y_signed1;
    reg           x_;
    reg [15:0]    x0, x1, y1, y2;
    reg [23:0]    y0, y3;
@@ -50,9 +49,18 @@ module dsp
       ng16 = (br16[2:1]==2'b10)|(br16[2:0]==3'b110);
       ng17 = (br17[2:1]==2'b10)|(br17[2:0]==3'b110);
       case(req_command)
-        0:begin
-           x_signed = 1'b0;
+        0,
+        2:begin
            y_signed = 1'b0;
+           y_signed1 = 1'b0;
+        end
+        3:begin
+           y_signed = 1'b1;
+           y_signed1 = 1'b0;
+        end
+      endcase
+      case(req_command)
+        0:begin
            x0[15:0] = req_in_1[15:0];
            x_       = req_in_1[7];
            x1[15:0] = req_in_1[23:8];
@@ -66,9 +74,8 @@ module dsp
            ng12 = 1'b0;
            ng13 = 1'b0;
         end
-        2:begin
-           x_signed = 1'b0;
-           y_signed = 1'b0;
+        2,
+        3:begin
            x0[15:0] = req_in_1[15:0];
            x_       = 1'b0;
            x1[15:0] = req_in_1[15:0];
@@ -92,10 +99,15 @@ module dsp
           resp_result[63:48] = 0;
        end
        2:begin
-          resp_result[47:0] = ( ((result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))   )
-                               +48'hfffe_00000000 
-                               +((result1 + (((x1[15])? req_in_2[31:16] : 0) <<24))<<8)  );
+          resp_result[47:0] = (48'hfffe_00000000
+                               +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))    )
+                               +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) <<8)  );
        end
+       3:begin
+          resp_result[47:0] = (48'hfffe_00000000
+                               +(result0     )
+                               +(result1 << 8));
+      end
      endcase
 
 
@@ -107,10 +119,10 @@ module dsp
    booth0 booth02(.i(1), .y_signed(y_signed), .br(br02), .y(y0), .by(by02), .com(req_command));
    booth0 booth03(.i(1), .y_signed(y_signed), .br(br03), .y(y0), .by(by03), .com(req_command));
 
-   booth1 booth04(.i(1), .y_signed(y_signed), .br(br04), .y(y1), .by(by04), .com(req_command));
-   booth1 booth05(.i(1), .y_signed(y_signed), .br(br05), .y(y1), .by(by05), .com(req_command));
-   booth1 booth06(.i(1), .y_signed(y_signed), .br(br06), .y(y1), .by(by06), .com(req_command));
-   booth1 booth07(.i(1), .y_signed(y_signed), .br(br07), .y(y1), .by(by07), .com(req_command));
+   booth1 booth04(.i(1), .y_signed(y_signed1), .br(br04), .y(y1), .by(by04), .com(req_command));
+   booth1 booth05(.i(1), .y_signed(y_signed1), .br(br05), .y(y1), .by(by05), .com(req_command));
+   booth1 booth06(.i(1), .y_signed(y_signed1), .br(br06), .y(y1), .by(by06), .com(req_command));
+   booth1 booth07(.i(1), .y_signed(y_signed1), .br(br07), .y(y1), .by(by07), .com(req_command));
 
    booth2 booth10(.i(0), .y_signed(y_signed), .br(br10), .y(y2), .by(by10), .com(req_command));
    booth2 booth11(.i(1), .y_signed(y_signed), .br(br11), .y(y2), .by(by11), .com(req_command));
@@ -195,7 +207,7 @@ module booth1
    output reg [27:0] by
    );
 
-   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : br[2] ;
+   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : (y[15]&y_signed)^br[2] ;
    reg               y_;
 
    always @(*) begin
@@ -204,7 +216,8 @@ module booth1
            y_ = 1'b0;
            by[27:17] = 0;
         end
-        2: begin
+        2,
+        3: begin
            y_ = 1'b1;
            by[27:17] = {8'h0,2'b01,~S};
         end
@@ -232,7 +245,7 @@ module booth2
    output reg [27:0] by
    );
 
-   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : br[2] ;
+   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : (y[15]&y_signed)^br[2] ;
    reg               y_;
 
    always @(*) begin
@@ -241,7 +254,8 @@ module booth2
            y_ = 1'b0;
            by[27:25] = {2'b01,~S};
         end
-        2: begin
+        2,
+        3: begin
            y_ = br[2]^y[7];
            if(i) by[27:25] = {2'b01,~S};
            else  by[27:25] = {~S,S,S};
@@ -249,12 +263,12 @@ module booth2
       endcase
       case(br)
         3'b000: by[24:16] =  {9{1'b0}};
-        3'b001: by[24:16] =  {1'b0,y[15:8]};
-        3'b010: by[24:16] =  {1'b0,y[15:8]};
+        3'b001: by[24:16] =  {y[15]&y_signed,y[15:8]};
+        3'b010: by[24:16] =  {y[15]&y_signed,y[15:8]};
         3'b011: by[24:16] =  {y[15:8],y_};
         3'b100: by[24:16] = {~y[15:8],y_};
-        3'b101: by[24:16] = {1'b1,~y[15:8]};
-        3'b110: by[24:16] = {1'b1,~y[15:8]};
+        3'b101: by[24:16] = ~{y[15]&y_signed,y[15:8]};
+        3'b110: by[24:16] = ~{y[15]&y_signed,y[15:8]};
         3'b111: by[24:16] =  {9{1'b0}};
       endcase
       if(com==0)begin

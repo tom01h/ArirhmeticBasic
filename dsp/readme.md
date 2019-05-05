@@ -10,6 +10,7 @@ Xilinx と Intel から次世代の FPGA アーキテクチャの発表があり
 0. (符号なし 24bit 整数) × (符号なし 24bit 整数)
 1. 予約
 2. (符号なし 32bit 整数) × (符号なし 16bit 整数)
+3. (符号付き 32bit 整数) × (符号付き 16bit 整数)
 
 ### コンパイル
 
@@ -18,6 +19,7 @@ Verilator が必要です。
 0. $ make TB=U24x24_tb.cpp
 1. 予約
 2. $ make TB=U32x16_tb.cpp
+3. $ make TB=S32x16_tb.cpp
 
 ### 実行
 
