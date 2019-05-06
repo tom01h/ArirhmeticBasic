@@ -15,6 +15,8 @@ Xilinx と Intel から次世代の FPGA アーキテクチャの発表があり
 5. 予約
 6. (符号なし 16bit 整数) × (符号なし 16bit 整数) + (符号なし 16bit 整数) × (符号なし 16bit 整数)
 7. (符号付き 16bit 整数) × (符号付き 16bit 整数) + (符号付き 16bit 整数) × (符号付き 16bit 整数)
+8. (符号なし 16bit 整数) × (符号なし 16bit 整数) ; (符号なし 16bit 整数) × (符号なし 16bit 整数)
+9. (符号付き 16bit 整数) × (符号付き 16bit 整数) ; (符号付き 16bit 整数) × (符号付き 16bit 整数)
 
 ### コンパイル
 
@@ -28,6 +30,8 @@ Verilator が必要です。
 5. 予約
 6. $ make TB=U16x16x2a_tb.cpp
 7. $ make TB=S16x16x2a_tb.cpp
+8. $ make TB=U16x16x2s_tb.cpp
+9. $ make TB=S16x16x2s_tb.cpp
 
 ### 実行
 

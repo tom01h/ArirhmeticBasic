@@ -51,7 +51,8 @@ module dsp
       case(req_command)
         0,
         2,
-        6:begin
+        6,
+        8:begin
            y_signed = 1'b0;
            y_signed0 = 1'b0;
            y_signed1 = 1'b0;
@@ -62,7 +63,8 @@ module dsp
            y_signed0 = 1'b0;
            y_signed1 = 1'b0;
         end
-        7:begin
+        7,
+        9:begin
            y_signed = 1'b1;
            y_signed0 = 1'b1;
            y_signed1 = 1'b1;
@@ -100,7 +102,9 @@ module dsp
            ng13 = (br13[2:1]==2'b10)|(br13[2:0]==3'b110);
         end
         6,
-        7:begin
+        7,
+        8,
+        9:begin
            x0[15:0] = req_in_1[15:0];
            x_       = 1'b0;
            x1[15:0] = req_in_1[31:16];
@@ -120,29 +124,43 @@ module dsp
    always @(*)
      case(req_command)
        0:begin
-          resp_result[47:0] = result0 + (result1<<8) + (((x1[15])? req_in_2[23:0] : 0) <<24);
           resp_result[63:48] = 0;
+          resp_result[47:0] = result0 + (result1<<8) + (((x1[15])? req_in_2[23:0] : 0) <<24);
        end
        2,
        4:begin
+          resp_result[63:48] = 0;
           resp_result[47:0] = (48'hfffe_00000000
                                +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))    )
                                +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) <<8)  );
        end
        3:begin
+          resp_result[63:48] = 0;
           resp_result[47:0] = (48'hfffe_00000000
                                +(result0     )
                                +(result1 << 8));
        end
        6:begin
+          resp_result[63:48] = 0;
           resp_result[47:0] = (48'hfffc_00000000
                                +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))    )
                                +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) >>8)  );
        end
        7:begin
+          resp_result[63:48] = 0;
           resp_result[47:0] = (48'hfffc_00000000
                                +(result0     )
                                +(result1 >> 8));
+       end
+       8:begin
+          resp_result[63:0] = (64'hfffffffe_00000000
+                               +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))     )
+                               +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) <<24)  );
+       end
+       9:begin
+          resp_result[63:0] = ((64'hfffffffe_00000000|{req_in_1[15]^req_in_2[15],32'h00000000})
+                               +(result0     )
+                               +(result1 <<24));
        end
      endcase
 
@@ -284,7 +302,9 @@ module booth1
         3,
         4,
         6,
-        7: begin
+        7,
+        8,
+        9: begin
            case(br)
              3'b000: by[16] =  1'b0;
              3'b001: by[16] =  y[15]&y_signed;
@@ -343,7 +363,9 @@ module booth2
         3,
         4,
         6,
-        7: begin
+        7,
+        8,
+        9: begin
            case(br)
              3'b000: by[16:8] =  {9{1'b0}};
              3'b001: by[16:8] =   y[8:0];
