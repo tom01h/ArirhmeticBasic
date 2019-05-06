@@ -9,7 +9,7 @@ module dsp
    );
 
    reg           y_signed, y_signed0, y_signed1;
-   reg           x_;
+   reg           x_, x0_, x1_;
    reg [15:0]    x0, x1, y1, y2;
    reg [23:0]    y0, y3;
 
@@ -17,7 +17,7 @@ module dsp
    wire [2:0]    br01 = x0[3:1];
    wire [2:0]    br02 = x0[5:3];
    wire [2:0]    br03 = x0[7:5];
-   wire [2:0]    br04 = x0[9:7];
+   wire [2:0]    br04 = {x0[9:8],x0_};
    wire [2:0]    br05 = x0[11:9];
    wire [2:0]    br06 = x0[13:11];
    wire [2:0]    br07 = x0[15:13];
@@ -26,7 +26,7 @@ module dsp
    wire [2:0]    br11 = x1[3:1];
    wire [2:0]    br12 = x1[5:3];
    wire [2:0]    br13 = x1[7:5];
-   wire [2:0]    br14 = x1[9:7];
+   wire [2:0]    br14 = {x1[9:8],x1_};
    wire [2:0]    br15 = x1[11:9];
    wire [2:0]    br16 = x1[13:11];
    wire [2:0]    br17 = x1[15:13];
@@ -52,7 +52,8 @@ module dsp
         0,
         2,
         6,
-        8:begin
+        8,
+        10:begin
            y_signed = 1'b0;
            y_signed0 = 1'b0;
            y_signed1 = 1'b0;
@@ -72,8 +73,10 @@ module dsp
       endcase
       case(req_command)
         0:begin
+           x_  = req_in_1[7];
+           x0_ = req_in_1[7];
+           x1_ = req_in_1[15];
            x0[15:0] = req_in_1[15:0];
-           x_       = req_in_1[7];
            x1[15:0] = req_in_1[23:8];
            y0[23:0] = req_in_2[23:0];
            y1[15:0] = req_in_2[15:0];
@@ -88,8 +91,10 @@ module dsp
         2,
         3,
         4:begin
-           x0[15:0] = req_in_1[15:0];
            x_       = 1'b0;
+           x0_ = req_in_1[7];
+           x1_ = req_in_1[7];
+           x0[15:0] = req_in_1[15:0];
            x1[15:0] = req_in_1[15:0];
            y0[23:0] = {8'h0,req_in_2[15:0]};
            y1[15:0] = req_in_2[15:0];
@@ -105,13 +110,31 @@ module dsp
         7,
         8,
         9:begin
-           x0[15:0] = req_in_1[15:0];
            x_       = 1'b0;
+           x0_ = req_in_1[7];
+           x1_ = req_in_1[23];
+           x0[15:0] = req_in_1[15:0];
            x1[15:0] = req_in_1[31:16];
            y0[23:0] = {8'h0,req_in_2[15:0]};
            y1[15:0] = req_in_2[15:0];
            y2[15:0] = req_in_2[31:16];
            y3[23:0] = {req_in_2[31:16],8'h0};
+
+           ng10 = (br10[2:1]==2'b10)|(br10[2:0]==3'b110);
+           ng11 = (br11[2:1]==2'b10)|(br11[2:0]==3'b110);
+           ng12 = (br12[2:1]==2'b10)|(br12[2:0]==3'b110);
+           ng13 = (br13[2:1]==2'b10)|(br13[2:0]==3'b110);
+        end
+        10:begin
+           x_       = 1'b0;
+           x0_      = 1'b0;
+           x1_      = 1'b0;
+           x0[15:0] = req_in_1[15:0];
+           x1[15:0] = req_in_1[31:16];
+           y0[23:0] = {req_in_2[7:0],16'h0};
+           y1[15:0] = {req_in_2[15:8],8'h0};
+           y2[15:0] = {8'h0,req_in_2[23:16]};
+           y3[23:0] = {16'h0,req_in_2[31:24]};
 
            ng10 = (br10[2:1]==2'b10)|(br10[2:0]==3'b110);
            ng11 = (br11[2:1]==2'b10)|(br11[2:0]==3'b110);
@@ -162,6 +185,16 @@ module dsp
                                +(result0     )
                                +(result1 <<24));
        end
+       10:begin
+          resp_result[63:48] = 0;
+          resp_result[47:0] = (48'hfffc_00000000
+                               +  result0
+                               + (((x0[7] )? req_in_2[7:0]  : 0) << 24)
+                               + (((x0[15])? req_in_2[15:8] : 0) << 24)
+                               + (result1<<8)
+                               + (((x1[7] )? req_in_2[23:16]: 0) << 24)
+                               + (((x1[15])? req_in_2[31:24]: 0) << 24)  );
+       end
      endcase
 
 
@@ -173,7 +206,7 @@ module dsp
    booth0 booth02(.i(1), .y_signed(y_signed0), .br(br02), .y(y0), .by(by02), .com(req_command));
    booth0 booth03(.i(1), .y_signed(y_signed0), .br(br03), .y(y0), .by(by03), .com(req_command));
 
-   booth1 booth04(.i(1), .y_signed(y_signed1), .br(br04), .y(y1), .by(by04), .com(req_command));
+   booth1 booth04(.i(0), .y_signed(y_signed1), .br(br04), .y(y1), .by(by04), .com(req_command));
    booth1 booth05(.i(1), .y_signed(y_signed1), .br(br05), .y(y1), .by(by05), .com(req_command));
    booth1 booth06(.i(1), .y_signed(y_signed1), .br(br06), .y(y1), .by(by06), .com(req_command));
    booth1 booth07(.i(1), .y_signed(y_signed1), .br(br07), .y(y1), .by(by07), .com(req_command));
@@ -231,7 +264,7 @@ module booth0
         3'b110: by[15:0] = ~{y[15:0]};
         3'b111: by[15:0] =  {16{1'b0}};
       endcase
-      if(com==0)begin
+      if((com==0)||(com==10))begin
          case(br)
            3'b000: by[24:16] =  {9{1'b0}};
            3'b001: by[24:16] =  {1'b0,y[23:16]};
@@ -317,6 +350,20 @@ module booth1
            endcase
            by[27:17] = {8'h0,2'b01,~S};
         end
+        10: begin
+           case(br)
+             3'b000: by[16] =  1'b0;
+             3'b001: by[16] =  y[15]&y_signed;
+             3'b010: by[16] =  y[15]&y_signed;
+             3'b011: by[16] =  y[15];
+             3'b100: by[16] = ~y[15];
+             3'b101: by[16] =~(y[15]&y_signed);
+             3'b110: by[16] =~(y[15]&y_signed);
+             3'b111: by[16] =  1'b0;
+           endcase
+           if(i) by[27:17] = {8'h0,2'b01,~S};
+           else  by[27:17] = {8'h0,~S,S,S};
+        end
       endcase
    end
 endmodule
@@ -365,7 +412,8 @@ module booth2
         6,
         7,
         8,
-        9: begin
+        9,
+        10: begin
            case(br)
              3'b000: by[16:8] =  {9{1'b0}};
              3'b001: by[16:8] =   y[8:0];
