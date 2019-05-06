@@ -54,7 +54,8 @@ module dsp
            y_signed = 1'b0;
            y_signed1 = 1'b0;
         end
-        3:begin
+        3,
+        4:begin
            y_signed = 1'b1;
            y_signed1 = 1'b0;
         end
@@ -75,7 +76,8 @@ module dsp
            ng13 = 1'b0;
         end
         2,
-        3:begin
+        3,
+        4:begin
            x0[15:0] = req_in_1[15:0];
            x_       = 1'b0;
            x1[15:0] = req_in_1[15:0];
@@ -98,7 +100,8 @@ module dsp
           resp_result[47:0] = result0 + (result1<<8) + (((x1[15])? req_in_2[23:0] : 0) <<24);
           resp_result[63:48] = 0;
        end
-       2:begin
+       2,
+       4:begin
           resp_result[47:0] = (48'hfffe_00000000
                                +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))    )
                                +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) <<8)  );
@@ -217,7 +220,8 @@ module booth1
            by[27:17] = 0;
         end
         2,
-        3: begin
+        3,
+        4: begin
            y_ = 1'b1;
            by[27:17] = {8'h0,2'b01,~S};
         end
@@ -255,7 +259,8 @@ module booth2
            by[27:25] = {2'b01,~S};
         end
         2,
-        3: begin
+        3,
+        4: begin
            y_ = br[2]^y[7];
            if(i) by[27:25] = {2'b01,~S};
            else  by[27:25] = {~S,S,S};
