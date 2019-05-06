@@ -91,6 +91,20 @@ module dsp
            ng12 = (br12[2:1]==2'b10)|(br12[2:0]==3'b110);
            ng13 = (br13[2:1]==2'b10)|(br13[2:0]==3'b110);
         end
+        6:begin
+           x0[15:0] = req_in_1[15:0];
+           x_       = 1'b0;
+           x1[15:0] = req_in_1[31:16];
+           y0[23:0] = {8'h0,req_in_2[15:0]};
+           y1[15:0] = req_in_2[15:0];
+           y2[15:0] = req_in_2[31:16];
+           y3[23:0] = {req_in_2[31:16],8'h0};
+
+           ng10 = (br10[2:1]==2'b10)|(br10[2:0]==3'b110);
+           ng11 = (br11[2:1]==2'b10)|(br11[2:0]==3'b110);
+           ng12 = (br12[2:1]==2'b10)|(br12[2:0]==3'b110);
+           ng13 = (br13[2:1]==2'b10)|(br13[2:0]==3'b110);
+        end
       endcase
    end
 
@@ -110,7 +124,12 @@ module dsp
           resp_result[47:0] = (48'hfffe_00000000
                                +(result0     )
                                +(result1 << 8));
-      end
+       end
+       6:begin
+          resp_result[47:0] = (48'hfffc_00000000
+                               +( (result0 + (((x0[15])? req_in_2[15:0]  : 0) <<16))    )
+                               +( (result1 + (((x1[15])? req_in_2[31:16] : 0) <<24)) >>8)  );
+       end
      endcase
 
 
@@ -221,7 +240,8 @@ module booth1
         end
         2,
         3,
-        4: begin
+        4,
+        6: begin
            y_ = 1'b1;
            by[27:17] = {8'h0,2'b01,~S};
         end
@@ -260,7 +280,8 @@ module booth2
         end
         2,
         3,
-        4: begin
+        4,
+        6: begin
            y_ = br[2]^y[7];
            if(i) by[27:25] = {2'b01,~S};
            else  by[27:25] = {~S,S,S};
