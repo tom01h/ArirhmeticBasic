@@ -65,7 +65,8 @@ module dsp
            y_signed1 = 1'b0;
         end
         7,
-        9:begin
+        9,
+        11:begin
            y_signed = 1'b1;
            y_signed0 = 1'b1;
            y_signed1 = 1'b1;
@@ -125,7 +126,8 @@ module dsp
            ng12 = (br12[2:1]==2'b10)|(br12[2:0]==3'b110);
            ng13 = (br13[2:1]==2'b10)|(br13[2:0]==3'b110);
         end
-        10:begin
+        10,
+        11:begin
            x_       = 1'b0;
            x0_      = 1'b0;
            x1_      = 1'b0;
@@ -188,12 +190,20 @@ module dsp
        10:begin
           resp_result[63:48] = 0;
           resp_result[47:0] = (48'hfffc_00000000
+                               + 48'hfffc_00000000
                                +  result0
                                + (((x0[7] )? req_in_2[7:0]  : 0) << 24)
                                + (((x0[15])? req_in_2[15:8] : 0) << 24)
                                + (result1<<8)
                                + (((x1[7] )? req_in_2[23:16]: 0) << 24)
                                + (((x1[15])? req_in_2[31:24]: 0) << 24)  );
+       end
+       11:begin
+          resp_result[63:48] = 0;
+          resp_result[47:0] = (48'hfffc_00000000
+                               + 48'hfffc_00000000
+                               +  result0
+                               + (result1<<8)  );
        end
      endcase
 
@@ -216,10 +226,10 @@ module dsp
    booth2 booth12(.i(1), .y_signed(y_signed), .br(br12), .y(y2), .by(by12), .com(req_command));
    booth2 booth13(.i(1), .y_signed(y_signed), .br(br13), .y(y2), .by(by13), .com(req_command));
 
-   booth3 booth14(.i(1), .y_signed(y_signed), .br(br14), .y(y3), .by(by14));
-   booth3 booth15(.i(1), .y_signed(y_signed), .br(br15), .y(y3), .by(by15));
-   booth3 booth16(.i(1), .y_signed(y_signed), .br(br16), .y(y3), .by(by16));
-   booth3 booth17(.i(1), .y_signed(y_signed), .br(br17), .y(y3), .by(by17));
+   booth3 booth14(.i(0), .y_signed(y_signed), .br(br14), .y(y3), .by(by14), .com(req_command));
+   booth3 booth15(.i(1), .y_signed(y_signed), .br(br15), .y(y3), .by(by15), .com(req_command));
+   booth3 booth16(.i(1), .y_signed(y_signed), .br(br16), .y(y3), .by(by16), .com(req_command));
+   booth3 booth17(.i(1), .y_signed(y_signed), .br(br17), .y(y3), .by(by17), .com(req_command));
 
    wire [63:0]   result0 = ((({1'b0,by00}+ng00)) +
                             (({1'b0,by01}+ng01)<<2) +
@@ -251,7 +261,8 @@ module booth0
    output reg [27:0] by
    );
 
-   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : (y[15]&y_signed)^br[2] ;
+   wire              y_sign = (com==11) ? y[23] : y[15]&y_signed;
+   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : y_sign^br[2] ;
 
    always @(*) begin
       case(br)
@@ -264,15 +275,15 @@ module booth0
         3'b110: by[15:0] = ~{y[15:0]};
         3'b111: by[15:0] =  {16{1'b0}};
       endcase
-      if((com==0)||(com==10))begin
+      if((com==0)||(com==10)||(com==11))begin
          case(br)
            3'b000: by[24:16] =  {9{1'b0}};
-           3'b001: by[24:16] =  {1'b0,y[23:16]};
-           3'b010: by[24:16] =  {1'b0,y[23:16]};
+           3'b001: by[24:16] =  {y[23]&y_signed,y[23:16]};
+           3'b010: by[24:16] =  {y[23]&y_signed,y[23:16]};
            3'b011: by[24:16] =  {y[23:15]};
            3'b100: by[24:16] = ~{y[23:15]};
-           3'b101: by[24:16] = ~{1'b0,y[23:16]};
-           3'b110: by[24:16] = ~{1'b0,y[23:16]};
+           3'b101: by[24:16] = ~{y[23]&y_signed,y[23:16]};
+           3'b110: by[24:16] = ~{y[23]&y_signed,y[23:16]};
            3'b111: by[24:16] =  {9{1'b0}};
          endcase
          if(i) by[27:25] = {2'b01,~S};
@@ -350,7 +361,8 @@ module booth1
            endcase
            by[27:17] = {8'h0,2'b01,~S};
         end
-        10: begin
+        10,
+        11: begin
            case(br)
              3'b000: by[16] =  1'b0;
              3'b001: by[16] =  y[15]&y_signed;
@@ -378,57 +390,67 @@ module booth2
    output reg [27:0] by
    );
 
-   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : (y[15]&y_signed)^br[2] ;
+   wire              y_sign = ((com==11) ? y[7] : y[15]) & y_signed;
+   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : y_sign^br[2] ;
 
    always @(*) begin
-      case(br)
-        3'b000: by[24:17] =  {8{1'b0}};
-        3'b001: by[24:17] =  {y[15]&y_signed,y[15:9]};
-        3'b010: by[24:17] =  {y[15]&y_signed,y[15:9]};
-        3'b011: by[24:17] =  {y[15:8]};
-        3'b100: by[24:17] = ~{y[15:8]};
-        3'b101: by[24:17] = ~{y[15]&y_signed,y[15:9]};
-        3'b110: by[24:17] = ~{y[15]&y_signed,y[15:9]};
-        3'b111: by[24:17] =  {8{1'b0}};
-      endcase
-      case(com)
-        0: begin
-           case(br)
-             3'b000: by[16] =  1'b0;
-             3'b001: by[16] =  y[8];
-             3'b010: by[16] =  y[8];
-             3'b011: by[16] =  1'b0;
-             3'b100: by[16] =  1'b0;
-             3'b101: by[16] = ~y[8];
-             3'b110: by[16] = ~y[8];
-             3'b111: by[16] =  1'b0;
-           endcase
-           by[27:25] = {2'b01,~S};
-           by[15:0] = ({16{1'b0}});
-        end
-        2,
-        3,
-        4,
-        6,
-        7,
-        8,
-        9,
-        10: begin
-           case(br)
-             3'b000: by[16:8] =  {9{1'b0}};
-             3'b001: by[16:8] =   y[8:0];
-             3'b010: by[16:8] =   y[8:0];
-             3'b011: by[16:8] =  {y[7:0],1'b0};
-             3'b100: by[16:8] = ~{y[7:0],1'b0};
-             3'b101: by[16:8] =  ~y[8:0];
-             3'b110: by[16:8] =  ~y[8:0];
-             3'b111: by[16:8] =  {9{1'b0}};
-           endcase
-           if(i) by[27:25] = {2'b01,~S};
-           else  by[27:25] = {~S,S,S};
-           by[7:0] = 0;
-        end
-      endcase
+      if((com==10)||(com==11))begin
+         if(i) by[19:17] = {2'b01,~S};
+         else  by[19:17] = {~S,S,S};
+         by[24:20] = 0;
+      end else begin
+         case(br)
+           3'b000: by[24:17] =  {8{1'b0}};
+           3'b001: by[24:17] =  {y[15]&y_signed,y[15:9]};
+           3'b010: by[24:17] =  {y[15]&y_signed,y[15:9]};
+           3'b011: by[24:17] =  {y[15:8]};
+           3'b100: by[24:17] = ~{y[15:8]};
+           3'b101: by[24:17] = ~{y[15]&y_signed,y[15:9]};
+           3'b110: by[24:17] = ~{y[15]&y_signed,y[15:9]};
+           3'b111: by[24:17] =  {8{1'b0}};
+         endcase
+      end
+      if(com==0)begin
+         case(br)
+           3'b000: by[16] =  1'b0;
+           3'b001: by[16] =  y[8];
+           3'b010: by[16] =  y[8];
+           3'b011: by[16] =  1'b0;
+           3'b100: by[16] =  1'b0;
+           3'b101: by[16] = ~y[8];
+           3'b110: by[16] = ~y[8];
+           3'b111: by[16] =  1'b0;
+         endcase
+         by[27:25] = {2'b01,~S};
+         by[15:0] = ({16{1'b0}});
+      end else if((com==10)|(com==11))begin
+         case(br)
+           3'b000: by[16:8] =  {9{1'b0}};
+           3'b001: by[16:8] =  {y[7]&y_signed,y[7:0]};
+           3'b010: by[16:8] =  {y[7]&y_signed,y[7:0]};
+           3'b011: by[16:8] =  {y[7:0],1'b0};
+           3'b100: by[16:8] = ~{y[7:0],1'b0};
+           3'b101: by[16:8] = ~{y[7]&y_signed,y[7:0]};
+           3'b110: by[16:8] = ~{y[7]&y_signed,y[7:0]};
+           3'b111: by[16:8] =  {9{1'b0}};
+         endcase
+         by[27:25] = 0;
+         by[7:0] = 0;
+      end else begin
+         case(br)
+           3'b000: by[16:8] =  {9{1'b0}};
+           3'b001: by[16:8] =   y[8:0];
+           3'b010: by[16:8] =   y[8:0];
+           3'b011: by[16:8] =  {y[7:0],1'b0};
+           3'b100: by[16:8] = ~{y[7:0],1'b0};
+           3'b101: by[16:8] =  ~y[8:0];
+           3'b110: by[16:8] =  ~y[8:0];
+           3'b111: by[16:8] =  {9{1'b0}};
+         endcase
+         if(i) by[27:25] = {2'b01,~S};
+         else  by[27:25] = {~S,S,S};
+         by[7:0] = 0;
+      end
    end
 endmodule
 
@@ -438,24 +460,52 @@ module booth3
    input             y_signed,
    input [2:0]       br,
    input [23:0]      y,
+   input integer     com,
    output reg [27:0] by
    );
 
-   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : (y[23]&y_signed)^br[2] ;
+   wire              y_sign = ((com==11) ? y[7] : y[23]) & y_signed;
+   wire              S = ((br==3'b000)|(br==3'b111)) ? 1'b0 : y_sign^br[2] ;
 
    always @(*) begin
       case(br)
-        3'b000: by[24:0] =  {25{1'b0}};
-        3'b001: by[24:0] =  {y[23]&y_signed,y[23:0]};
-        3'b010: by[24:0] =  {y[23]&y_signed,y[23:0]};
-        3'b011: by[24:0] =  {y[23:0],1'b0};
-        3'b100: by[24:0] = ~{y[23:0],1'b0};
-        3'b101: by[24:0] = ~{y[23]&y_signed,y[23:0]};
-        3'b110: by[24:0] = ~{y[23]&y_signed,y[23:0]};
-        3'b111: by[24:0] =  {25{1'b0}};
+        3'b000: by[7:0] =  {8{1'b0}};
+        3'b001: by[7:0] =  {y[7:0]};
+        3'b010: by[7:0] =  {y[7:0]};
+        3'b011: by[7:0] =  {y[6:0],1'b0};
+        3'b100: by[7:0] = ~{y[6:0],1'b0};
+        3'b101: by[7:0] = ~{y[7:0]};
+        3'b110: by[7:0] = ~{y[7:0]};
+        3'b111: by[7:0] =  {8{1'b0}};
       endcase
-      if(i) by[27:25] = {2'b01,~S};
-      else  by[27:25] = {~S,S,S};
+
+      if((com==10)||(com==11))begin
+         case(br)
+           3'b000: by[8] =  1'b0;
+           3'b001: by[8] =  y[7]&y_signed;
+           3'b010: by[8] =  y[7]&y_signed;
+           3'b011: by[8] =  y[7];
+           3'b100: by[8] = ~y[7];
+           3'b101: by[8] =~(y[7]&y_signed);
+           3'b110: by[8] =~(y[7]&y_signed);
+           3'b111: by[8] =  1'b0;
+         endcase
+         if(i) by[11:9] = {2'b01,~S};
+         else  by[11:9] = {~S,S,S};
+         by[27:12] = 0;
+      end else begin
+         case(br)
+           3'b000: by[24:8] =  {17{1'b0}};
+           3'b001: by[24:8] =  {y[23]&y_signed,y[23:8]};
+           3'b010: by[24:8] =  {y[23]&y_signed,y[23:8]};
+           3'b011: by[24:8] =  {y[23:7]};
+           3'b100: by[24:8] = ~{y[23:7]};
+           3'b101: by[24:8] = ~{y[23]&y_signed,y[23:8]};
+           3'b110: by[24:8] = ~{y[23]&y_signed,y[23:8]};
+           3'b111: by[24:8] =  {17{1'b0}};
+         endcase
+         by[27:25] = {2'b01,~S};
+      end
    end
 endmodule
 
