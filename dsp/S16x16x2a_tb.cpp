@@ -49,7 +49,6 @@ int main(int argc, char **argv, char **env) {
     if(y2&0x00008000){y2 |= 0xffff0000;}
 
     mv = verilator_top->resp_result;
-    if(mv&0x0000800000000000){mv|=0xffff000000000000;}
     mc = ((int64_t)(x1)*(int64_t)(y1) +
           (int64_t)(x2)*(int64_t)(y2) );
     if(mc==mv){

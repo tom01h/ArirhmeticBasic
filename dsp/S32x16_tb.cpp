@@ -40,7 +40,6 @@ int main(int argc, char **argv, char **env) {
     verilator_top->eval();
 
     mv = verilator_top->resp_result;
-    if(mv&0x0000800000000000){mv|=0xffff000000000000;}
     mc = (int64_t)x*(int64_t)y;
     if(mc==mv){
       printf("PASSED %04d : %08x * %08x = %08x_%08x\n",i,x,y,(int)(mv>>32),(int)mv);

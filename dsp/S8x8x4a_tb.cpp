@@ -57,8 +57,7 @@ int main(int argc, char **argv, char **env) {
     y3 = (int64_t)((y&0xff000000)>>24);
     if(y3&0x00000080){y3|=0xffffff00;}
 
-    mv = (verilator_top->resp_result)>>16;
-    if(mv&0x80000000){mv|=0xffffffff00000000;}
+    mv = ((int64_t)(verilator_top->resp_result))>>16;
     mc = (x0*y0) + (x1*y1) + (x2*y2) + (x3*y3);
     if(mc==mv){
       printf("PASSED %04d : %08x * %08x = %08x_%08x\n",i,x,y,(int)(mv>>32),(int)mv);
