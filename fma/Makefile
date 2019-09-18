@@ -19,6 +19,7 @@ VERILATOR_MAKE_OPTS = OPT_FAST="-O3"
 
 DESIGN_SRCS = \
 fmad.v \
+mulary.v \
 
 VERILATOR_CPP_TB = fmad_tb.cpp
 

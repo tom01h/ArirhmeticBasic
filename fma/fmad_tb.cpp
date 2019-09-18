@@ -49,11 +49,9 @@ int main(int argc, char **argv, char **env) {
   int xe, ye, ze;
   int i, nloop, flag;
   char *e;
-  char vcdfile[VCD_PATH_LENGTH];
 
   fr rslt, expect;
 
-  strncpy(vcdfile,"tmp.vcd",VCD_PATH_LENGTH);
   srand((unsigned)time(NULL));
   i=0;
 
@@ -62,8 +60,15 @@ int main(int argc, char **argv, char **env) {
     y.i = strtol(argv[2],&e,16);
     z.i = strtol(argv[3],&e,16);
     nloop=1;
+  } else if(argc==6){
+    x.i = strtol(argv[1],&e,16);
+    y.i = strtol(argv[2],&e,16);
+    z.i = strtol(argv[3],&e,16);
+    expect.i = strtol(argv[4],&e,16);
+    flag = strtol(argv[5],&e,16);
+    nloop=1;
   }else if(argc==2){
-      nloop = atoi(argv[1]);
+    nloop = atoi(argv[1]);
   }
   
   Verilated::commandArgs(argc, argv);
@@ -98,6 +103,7 @@ int main(int argc, char **argv, char **env) {
     }else if(argc==1){
       if(scanf("%08x %08x %08x %08x %02x", &x.i, &y.i, &z.i, &expect.i, &flag)==EOF){
         break;}
+    }else if(argc==6){
     }else{
       expect.f = (double)x.f * (double)y.f + (double)z.f;
       flag = -1;
