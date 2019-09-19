@@ -109,15 +109,13 @@ module fmad
    reg [47:0]        mul;
    reg [23:0]        fracz;
 
-   reg [8:0]         expd;
+   reg signed [9:0]  expd;
    reg [8:0]         expa;
 
    reg               sgnm;
    reg               sgnz;
 
-   reg               sftmul;
-
-   reg [63:0]        muli;
+   wire [63:0]       muli;
 
    mulary mulary
      (
@@ -128,23 +126,22 @@ module fmad
       .req_in_2({8'h0,fracy[23:0]}),
       .resp_result(muli)
    );
+   //assign muli = {32'h0,fracx}*{32'h0,fracy};
 
 
    always @ (posedge clk) begin
       if(en0 & flag0i[0])begin
-//         mul <= {32'h0,fracx}*{32'h0,fracy};
          mul <= muli[47:0];
          fracz <= {(z[30:23]!=8'h00),z[22:0]};
          sgnm <= x[31]^y[31];
          sgnz <= z[31];
-         if(expm>expz)begin
-            expa = expm;
-            expd = expm-expz;
-            sftmul <= 1'b0;
+         expd <= expm-expz;
+         if(expm>=expz)begin
+            expa <= expm;
+         end else if(expm+27>=expz)begin
+            expa <= expm+27;
          end else begin
-            expa = expz;
-            expd = expz-expm;
-            sftmul <= 1'b1;
+            expa <= expz;
          end
       end
    end
@@ -153,57 +150,64 @@ module fmad
    reg [8:0]         expr;
    reg               sgnr;
 
+   reg [81:0]        alnmul;
+   reg [5:0]         sftz;
+
+   always @ (*) begin
+         if(expd>=0)begin
+            if(sgnm^sgnz) alnmul[81:0] = -{mul[47:0],32'h0};
+            else          alnmul[81:0] =  {mul[47:0],32'h0};
+         end else begin
+            if(sgnm^sgnz) alnmul[81:0] = -{mul[47:0],5'h0};
+            else          alnmul[81:0] =  {mul[47:0],5'h0};
+         end
+         if(expd>=55)begin
+            sftz = 55;
+         end else if(expd>=0)begin
+            sftz = expd;
+         end else if(expd>=-27)begin
+            sftz = expd+27;
+         end else begin
+            sftz = 0;
+         end
+   end
+
    always @ (posedge clk) begin
       if(en1 & flag0[0])begin
-         if(~sftmul)begin
-            sgnr <= sgnm;
-            if(expd>=55)
-              if(sgnm^sgnz) add[81:0] <= {mul[47:0],32'h0}-({fracz[23:0],56'h0}>>55);
-              else          add[81:0] <= {mul[47:0],32'h0}+({fracz[23:0],56'h0}>>55);
-            else
-              if(sgnm^sgnz) add[81:0] <= {mul[47:0],32'h0}-({fracz[23:0],56'h0}>>expd);
-              else          add[81:0] <= {mul[47:0],32'h0}+({fracz[23:0],56'h0}>>expd);
-         end else begin
-            sgnr <= sgnz;
-            if(expd>=27)
-              if(sgnm^sgnz) add[81:0] <= {fracz[23:0],56'h0}-({mul[47:0],32'h0}>>27);
-              else          add[81:0] <= {fracz[23:0],56'h0}+({mul[47:0],32'h0}>>27);
-            else
-              if(sgnm^sgnz) add[81:0] <= {fracz[23:0],56'h0}-({mul[47:0],32'h0}>>expd);
-              else          add[81:0] <= {fracz[23:0],56'h0}+({mul[47:0],32'h0}>>expd);
-         end
+         add[81:0] <= alnmul + ({fracz[23:0],56'h0}>>sftz);
+         sgnr <= sgnz;
          expr <= expa;
       end
    end
 
-   wire [56:0]   nrmi,nrm0,nrm1,nrm2,nrm3,nrm4,nrm5;
+   wire [64:0]   nrmi,nrm0,nrm1,nrm2,nrm3,nrm4,nrm5;
    wire [1:0]    ssn;
 
    wire [5:0]    nrmsft;                                // expr >= nrmsft : subnormal output
-   assign nrmsft[5] = (~(|nrmi[56:24])|(&nrmi[56:24]))& (expr[8:5]!=4'h0);
-   assign nrmsft[4] = (~(|nrm5[56:40])|(&nrm5[56:40]))&((expr[8:4]&{3'h7,~nrmsft[5],  1'b1})!=5'h00);
-   assign nrmsft[3] = (~(|nrm4[56:48])|(&nrm4[56:48]))&((expr[8:3]&{3'h7,~nrmsft[5:4],1'b1})!=6'h00);
-   assign nrmsft[2] = (~(|nrm3[56:52])|(&nrm3[56:52]))&((expr[8:2]&{3'h7,~nrmsft[5:3],1'b1})!=7'h00);
-   assign nrmsft[1] = (~(|nrm2[56:54])|(&nrm2[56:54]))&((expr[8:1]&{3'h7,~nrmsft[5:2],1'b1})!=8'h00);
-   assign nrmsft[0] = (~(|nrm1[56:55])|(&nrm1[56:55]))&((expr[8:0]&{3'h7,~nrmsft[5:1],1'b1})!=9'h000);
+   assign nrmsft[5] = (~(|nrmi[64:32])|(&nrmi[64:32]))& (expr[8:5]!=4'h0);
+   assign nrmsft[4] = (~(|nrm5[64:48])|(&nrm5[64:48]))&((expr[8:4]&{3'h7,~nrmsft[5],  1'b1})!=5'h00);
+   assign nrmsft[3] = (~(|nrm4[64:56])|(&nrm4[64:56]))&((expr[8:3]&{3'h7,~nrmsft[5:4],1'b1})!=6'h00);
+   assign nrmsft[2] = (~(|nrm3[64:60])|(&nrm3[64:60]))&((expr[8:2]&{3'h7,~nrmsft[5:3],1'b1})!=7'h00);
+   assign nrmsft[1] = (~(|nrm2[64:62])|(&nrm2[64:62]))&((expr[8:1]&{3'h7,~nrmsft[5:2],1'b1})!=8'h00);
+   assign nrmsft[0] = (~(|nrm1[64:63])|(&nrm1[64:63]))&((expr[8:0]&{3'h7,~nrmsft[5:1],1'b1})!=9'h000);
 
-   assign nrmi = {add[81:26],(|add[25:0])};
-   assign nrm5 = (~nrmsft[5]) ? nrmi : {nrmi[24:0], 32'h0000};
-   assign nrm4 = (~nrmsft[4]) ? nrm5 : {nrm5[40:0], 16'h0000};
-   assign nrm3 = (~nrmsft[3]) ? nrm4 : {nrm4[48:0], 8'h00};
-   assign nrm2 = (~nrmsft[2]) ? nrm3 : {nrm3[52:0], 4'h0};
-   assign nrm1 = (~nrmsft[1]) ? nrm2 : {nrm2[54:0], 2'b00};
-   assign nrm0 = (~nrmsft[0]) ? nrm1 : {nrm1[55:0], 1'b0};
-   assign ssn = {nrm0[30],(|nrm0[29:0])};
+   assign nrmi = {add[81:18],(|add[17:0])};
+   assign nrm5 = (~nrmsft[5]) ? nrmi : {add[49:0], 15'h0};
+   assign nrm4 = (~nrmsft[4]) ? nrm5 : {nrm5[48:0], 16'h0000};
+   assign nrm3 = (~nrmsft[3]) ? nrm4 : {nrm4[56:0], 8'h00};
+   assign nrm2 = (~nrmsft[2]) ? nrm3 : {nrm3[60:0], 4'h0};
+   assign nrm1 = (~nrmsft[1]) ? nrm2 : {nrm2[62:0], 2'b00};
+   assign nrm0 = (~nrmsft[0]) ? nrm1 : {nrm1[63:0], 1'b0};
+   assign ssn = {nrm0[38],(|nrm0[37:0])};
 
-   wire [2:0]    grsn = {nrm0[32:31],(|ssn)};
-   wire          rnd = (~nrmi[56]) ? (grsn[1:0]==2'b11)|(grsn[2:1]==2'b11)
+   wire [2:0]    grsn = {nrm0[40:39],(|ssn)};
+   wire          rnd = (~nrmi[64]) ? (grsn[1:0]==2'b11)|(grsn[2:1]==2'b11)
                                    : ((grsn[1:0]==2'b00)|                          // inc
                                       ((grsn[1]^grsn[0])     &(grsn[0]))|          // rs=11
                                       ((grsn[2]^(|grsn[1:0]))&(grsn[1]^grsn[0]))); // gr=11
-   wire [9:0]    expn = expr-nrmsft+{1'b0,(nrm0[56]^nrm0[55])}; // subnormal(+0) or normal(+1)
+   wire [9:0]    expn = expr-nrmsft+{1'b0,(nrm0[64]^nrm0[63])}; // subnormal(+0) or normal(+1)
 
-   wire [30:0]   rsltr = (~nrm0[56]) ? {expn,nrm0[54:32]}+rnd : {expn,~nrm0[54:32]}+rnd;
+   wire [30:0]   rsltr = (~nrm0[64]) ? {expn,nrm0[62:40]}+rnd : {expn,~nrm0[62:40]}+rnd;
 
    always @ (posedge clk) begin
       if(en2) begin
@@ -222,15 +226,16 @@ module fmad
             rslt[30:0] <= 31'h7f800000;
             flag[0] <= 1'b1;
             flag[2] <= 1'b1;
-         end else if(~nrm0[56])begin
+         end else if(~nrm0[64])begin
             rslt[30:0] <= rsltr[30:0];
-            flag[0] <= |grsn[1:0];
+            flag[0] <= |grsn[1:0] | (rsltr[30:23]==8'hff);
             flag[1] <= ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&~ssn[1]))&(|grsn[1:0]);
             flag[2] <= (rsltr[30:23]==8'hff);
          end else begin
             rslt[30:0] <= rsltr[30:0];
-            flag[0] <= |grsn[1:0];
+            flag[0] <= |grsn[1:0] | (rsltr[30:23]==8'hff);
             flag[1] <= ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&((~ssn[1]&~ssn[0])|(ssn[1]&ssn[0])) ))&(|grsn[1:0]);
+            flag[2] <= (rsltr[30:23]==8'hff);
          end
       end
    end
