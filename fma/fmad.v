@@ -100,20 +100,13 @@ module fmad
 
    wire [23:0]       fracx = {(x[30:23]!=8'h00),x[22:0]};
    wire [23:0]       fracy = {(y[30:23]!=8'h00),y[22:0]};
+   wire [31:0]       fracz = {(z[30:23]!=8'h00),z[22:0],8'h0};
 
-   wire [7:0]        expx = (x[30:23]==8'h00) ? 8'h01 : x[30:23];
-   wire [7:0]        expy = (y[30:23]==8'h00) ? 8'h01 : y[30:23];
+   wire [7:0]        expx =       (x[30:23]==8'h00) ? 8'h01 : x[30:23];
+   wire [7:0]        expy =       (y[30:23]==8'h00) ? 8'h01 : y[30:23];
    wire signed [8:0] expz = {1'b0,(z[30:23]==8'h00) ? 8'h01 : z[30:23]};
    wire signed [9:0] expm = expx+expy-127+1;
-
-   reg [47:0]        mul;
-   reg [23:0]        fracz;
-
-   reg signed [9:0]  expd;
-   reg [8:0]         expa;
-
-   reg               sgnm;
-   reg               sgnz;
+   wire signed [9:0] expd = expm-expz;
 
    wire [63:0]       muli;
 
@@ -128,53 +121,88 @@ module fmad
    );
    //assign muli = {32'h0,fracx}*{32'h0,fracy};
 
+   reg [5:0]         sfti;
+
+   always @ (*) begin
+      if(expd>=55)begin
+         sfti = 55;
+      end else if(expd>=0)begin
+         sfti = expd;
+      end else if(expd>=-32)begin
+         sfti = expd+32;
+      end else begin
+         sfti = 0;
+      end
+   end
+
+   reg [31:0]        acc0, acc1, acc2, acc3;
+   reg [5:0]         sft0, sft1, sft2, sft3;
+
+   reg [8:0]         expa;
+   reg               sgnz;
+
+   reg [47:0]        mul;
+   reg [1:0]         mulctl;
 
    always @ (posedge clk) begin
       if(en0 & flag0i[0])begin
          mul <= muli[47:0];
-         fracz <= {(z[30:23]!=8'h00),z[22:0]};
-         sgnm <= x[31]^y[31];
          sgnz <= z[31];
-         expd <= expm-expz;
-         if(expm>=expz)begin
+         if(expd>=0)begin
             expa <= expm;
-         end else if(expm+27>=expz)begin
-            expa <= expm+27;
+         end else if(expd>=-32)begin
+            expa <= expm+32;
          end else begin
             expa <= expz;
          end
+
+         if(expd>=0)begin
+            if(x[31]^y[31]^z[31]) mulctl <= 2'b00; else mulctl <= 2'b01;
+         end else begin
+            if(x[31]^y[31]^z[31]) mulctl <= 2'b10; else mulctl <= 2'b11;
+         end
+
+         if(sfti>=48)begin
+            acc0 <= 0;            acc1 <= fracz;            acc2 <= fracz;            acc3 <= fracz;
+            sft0 <= 0;            sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-32;
+         end else if(sfti>=32)begin
+            acc0 <= fracz;        acc1 <= fracz;            acc2 <= fracz;            acc3 <= {fracz,16'h0};
+            sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-16;
+         end else if(sfti>=16)begin
+            acc0 <= fracz;        acc1 <= fracz;            acc2 <= {fracz,16'h0};    acc3 <= 0;
+            sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti;             sft3 <= 0;
+         end else begin
+            acc0 <= fracz;        acc1 <= {fracz,16'h0};    acc2 <= 0;                acc3 <= 0;
+            sft0 <= sfti+16;      sft1 <= sfti+16;          sft2 <= 0;                sft3 <= 0;
+         end
       end
+   end
+
+   reg [81:0]        alnmul;
+
+   reg [47:0]        aln0, aln1, aln2, aln3;
+
+   always @ (*) begin
+      aln0 = {acc0,16'h0}>>sft0;
+      aln1 = {acc1,16'h0}>>sft1;
+      aln2 = {acc2,16'h0}>>sft2;
+      aln3 = {acc3,16'h0}>>sft3;
+
+      casez(mulctl)
+        2'b00: alnmul[81:0] = -{mul[47:0],32'h0};
+        2'b01: alnmul[81:0] =  {mul[47:0],32'h0};
+        2'b10: alnmul[81:0] = -{32'h0,mul[47:0]};
+        2'b11: alnmul[81:0] =  {32'h0,mul[47:0]};
+      endcase
    end
 
    reg [81:0]        add;
    reg [8:0]         expr;
    reg               sgnr;
 
-   reg [81:0]        alnmul;
-   reg [5:0]         sftz;
-
-   always @ (*) begin
-         if(expd>=0)begin
-            if(sgnm^sgnz) alnmul[81:0] = -{mul[47:0],32'h0};
-            else          alnmul[81:0] =  {mul[47:0],32'h0};
-         end else begin
-            if(sgnm^sgnz) alnmul[81:0] = -{mul[47:0],5'h0};
-            else          alnmul[81:0] =  {mul[47:0],5'h0};
-         end
-         if(expd>=55)begin
-            sftz = 55;
-         end else if(expd>=0)begin
-            sftz = expd;
-         end else if(expd>=-27)begin
-            sftz = expd+27;
-         end else begin
-            sftz = 0;
-         end
-   end
-
    always @ (posedge clk) begin
       if(en1 & flag0[0])begin
-         add[81:0] <= alnmul + ({fracz[23:0],56'h0}>>sftz);
+         add[81:0] <= alnmul + {1'b0, aln0[31:0], aln1[15:0], aln2[15:0], aln3[15:0]};
          sgnr <= sgnz;
          expr <= expa;
       end
