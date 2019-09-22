@@ -20,15 +20,16 @@ VERILATOR_MAKE_OPTS = OPT_FAST="-O3"
 DESIGN_SRCS = \
 fmad.v \
 mulary.v \
+cpa.v \
 
-VERILATOR_CPP_TB = fmad_tb.cpp
+TB = fmad_tb.cpp
 
 default: $(SIM_DIR)/Vfmad
 
 sim: $(SIM_DIR)/Vfmad
 
-$(SIM_DIR)/Vfmad: $(DESIGN_SRCS) $(VERILATOR_CPP_TB)
-	$(VERILATOR) $(VERILATOR_OPTS) $(DESIGN_SRCS) --exe ../$(VERILATOR_CPP_TB)
+$(SIM_DIR)/Vfmad: $(DESIGN_SRCS) $(TB)
+	$(VERILATOR) $(VERILATOR_OPTS) $(DESIGN_SRCS) --exe ../$(TB)
 	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmad.mk Vfmad__ALL.a
 	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vfmad.mk Vfmad
 

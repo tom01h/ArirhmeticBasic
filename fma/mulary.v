@@ -44,7 +44,7 @@ module mulary
       ng06 = (br06[2:1]==2'b10)|(br06[2:0]==3'b110);
       ng07 = (br07[2:1]==2'b10)|(br07[2:0]==3'b110);
 
-      if(req_command==0)begin
+      if((req_command==0)|(req_command==1))begin
          ng10 = 1'b0;
          ng11 = 1'b0;
          ng12 = 1'b0;
@@ -61,11 +61,13 @@ module mulary
       ng17 = (br17[2:1]==2'b10)|(br17[2:0]==3'b110);
       case(req_command)
         0,
+        1,
         2,
         6,
         8,
         10,
-        12:begin
+        12,
+        13:begin
            y_signed = 1'b0;
            y_signed0 = 1'b0;
            y_signed1 = 1'b0;
@@ -85,7 +87,8 @@ module mulary
         end
       endcase
       case(req_command)
-        0:begin
+        0,
+        1:begin
            x_  = req_in_1[7];
            x0_ = req_in_1[7];
            x1_ = req_in_1[15];
@@ -135,7 +138,8 @@ module mulary
            y2[15:0] = {8'h0,req_in_2[23:16]};
            y3[23:0] = {16'h0,req_in_2[31:24]};
         end
-        12:begin
+        12,
+        13:begin
            x_       = 1'b0;
            x0_      = 1'b0;
            x1_      = 1'b0;
@@ -151,7 +155,8 @@ module mulary
 
    always @(*)
      case(req_command)
-       0:begin
+       0,
+       1:begin
           resp_result[63:0] = (64'hfffe0000_00000000
                                +(result0      )
                                +(result1 << 8 )
@@ -214,7 +219,8 @@ module mulary
                                +(result0      )
                                +(result1 << 8 )  );
        end
-       12:begin
+       12,
+       13:begin
           resp_result[63:0] = (64'hfffffffe_00000000
                                +(result0      )
                                +(result1 << 24)
@@ -293,7 +299,7 @@ module booth0
         3'b110: by[15:0] = ~{y[15:0]};
         3'b111: by[15:0] =  {16{1'b0}};
       endcase
-      if((com==0)||(com==10)||(com==11))begin
+      if((com==0)||(com==1)||(com==10)||(com==11))begin
          case(br)
            3'b000: by[24:16] =  {9{1'b0}};
            3'b001: by[24:16] =  {y[23]&y_signed,y[23:16]};
@@ -347,7 +353,8 @@ module booth1
         3'b111: by[15:0] =  {16{1'b0}};
       endcase
       case(com)
-        0: begin
+        0,
+        1: begin
            case(br)
              3'b000: by[16] =  1'b0;
              3'b001: by[16] =  1'b0;
@@ -367,7 +374,8 @@ module booth1
         7,
         8,
         9,
-        12: begin
+        12,
+        13: begin
            case(br)
              3'b000: by[16] =  1'b0;
              3'b001: by[16] =  y[15]&y_signed;
@@ -429,7 +437,7 @@ module booth2
            3'b111: by[24:17] =  {8{1'b0}};
          endcase
       end
-      if(com==0)begin
+      if((com==0)|(com==1))begin
          case(br)
            3'b000: by[16] =  1'b0;
            3'b001: by[16] =  y[8];
@@ -527,4 +535,3 @@ module booth3
       end
    end
 endmodule
-

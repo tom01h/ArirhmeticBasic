@@ -49,14 +49,18 @@ endmodule
 
 module fmad
   (
-   input             clk,
-   input             reset,
-   input             req,
-   input [31:0]      x,
-   input [31:0]      y,
-   input [31:0]      z,
-   output reg [31:0] rslt,
-   output reg [4:0]  flag
+   input                    clk,
+   input                    reset,
+   input                    req,
+   input integer            req_command,
+   input [31:0]             x,
+   input [31:0]             y,
+   input [31:0]             z,
+   input [31:0]             w,
+   output reg signed [31:0] acc0, acc1, acc2, acc3,
+   output reg signed [ 9:0] exp0, exp1, exp2, exp3,
+   output reg [31:0]        rslt,
+   output reg [4:0]         flag
    );
 
    reg               en0, en1, en2;
@@ -89,8 +93,12 @@ module fmad
 
    always @ (posedge clk) begin
       if(en0) begin
-         flag0 <= flag0i;
-         rslt0 <= rslt0i;
+         if(req_command==1)begin
+            flag0 <= flag0i;
+            rslt0 <= rslt0i;
+         end else begin
+            flag0 <= 0;
+         end
       end
       if(en1)begin
          flag1 <= flag0;
@@ -110,16 +118,20 @@ module fmad
 
    wire [63:0]       muli;
 
+   wire [31:0]       req_in_1 = ((req_command == 1) ? {8'h0,fracx[23:0]}
+                                 :                    {1'b1,x[6:0],  1'b1,y[6:0],  1'b1,x[6:0],  1'b1,w[6:0]});
+   wire [31:0]       req_in_2 = ((req_command == 1) ? {8'h0,fracy[23:0]}
+                                 :                    {1'b1,x[22:16],1'b1,y[22:16],1'b1,x[22:16],1'b1,w[22:16]});
+
    mulary mulary
      (
       .clk(clk),
       .reset(reset),
-      .req_command(0),
-      .req_in_1({8'h0,fracx[23:0]}),
-      .req_in_2({8'h0,fracy[23:0]}),
+      .req_command(req_command),
+      .req_in_1(req_in_1),
+      .req_in_2(req_in_2),
       .resp_result(muli)
    );
-   //assign muli = {32'h0,fracx}*{32'h0,fracy};
 
    reg [5:0]         sfti;
 
@@ -135,18 +147,35 @@ module fmad
       end
    end
 
-   reg [31:0]        acc0, acc1, acc2, acc3;
+//   reg [31:0]        acc0, acc1, acc2, acc3;
    reg [5:0]         sft0, sft1, sft2, sft3;
 
    reg [8:0]         expa;
    reg               sgnz;
 
-   reg [47:0]        mul;
-   reg [1:0]         mulctl;
+   reg [63:0]        mul;
+   reg [4:0]         mulctl;
+
+   reg [48:0]        aln0, aln1, aln2, aln3;
+   wire [31:0]       add0, add1, add2, add3;
+
+   wire signed [9:0] exd0 = {1'b0,x[30:23]} + {1'b0,x[14:7]} - exp0 + 16;
+   wire signed [9:0] exd1 = {1'b0,y[30:23]} + {1'b0,y[14:7]} - exp1 + 16;
+   wire signed [9:0] exd2 = {1'b0,z[30:23]} + {1'b0,z[14:7]} - exp2 + 16;
+   wire signed [9:0] exd3 = {1'b0,w[30:23]} + {1'b0,w[14:7]} - exp3 + 16;
+
+   wire sftout0 = (exd0<0) | (aln0[48:30]!={19{1'b0}}) & (aln0[48:30]!={19{1'b1}}); //FIX ME not piped
+   wire sftout1 = (exd1<0) | (aln1[48:30]!={19{1'b0}}) & (aln1[48:30]!={19{1'b1}}); //FIX ME not piped
+   wire sftout2 = (exd2<0) | (aln2[48:30]!={19{1'b0}}) & (aln2[48:30]!={19{1'b1}}); //FIX ME not piped
+   wire sftout3 = (exd3<0) | (aln3[48:30]!={19{1'b0}}) & (aln3[48:30]!={19{1'b1}}); //FIX ME not piped
 
    always @ (posedge clk) begin
       if(en0 & flag0i[0])begin
-         mul <= muli[47:0];
+         if(req_command==13)begin
+            mul <= muli;
+         end else begin
+            mul <= {16'h0,muli[47:0]};
+         end
          sgnz <= z[31];
          if(expd>=0)begin
             expa <= expm;
@@ -156,13 +185,24 @@ module fmad
             expa <= expz;
          end
 
-         if(expd>=0)begin
-            if(x[31]^y[31]^z[31]) mulctl <= 2'b00; else mulctl <= 2'b01;
+         if(req_command==13)begin
+            mulctl <= {1'b1,x[31]^x[15], y[31]^y[15], z[31]^z[15], w[31]^w[15]};
+         end else if(expd>=0)begin
+            mulctl <= {1'b0,{4{(x[31]^y[31]^z[31])}}};
          end else begin
-            if(x[31]^y[31]^z[31]) mulctl <= 2'b10; else mulctl <= 2'b11;
+            mulctl <= {1'b1,{4{(x[31]^y[31]^z[31])}}};
          end
 
-         if(sfti>=48)begin
+         if(req_command==13)begin
+            if(exd0[9:6]!=0) sft0 <= 63;
+            else             sft0 <= {1'b0,x[30:23]} + {1'b0,x[14:7]} - exp0 + 16;
+            if(exd1[9:6]!=0) sft1 <= 63;
+            else             sft1 <= {1'b0,y[30:23]} + {1'b0,y[14:7]} - exp1 + 16;
+            if(exd2[9:6]!=0) sft2 <= 63;
+            else             sft2 <= {1'b0,z[30:23]} + {1'b0,z[14:7]} - exp2 + 16;
+            if(exd3[9:6]!=0) sft3 <= 63;
+            else             sft3 <= {1'b0,w[30:23]} + {1'b0,w[14:7]} - exp3 + 16;
+         end else if(sfti>=48)begin
             acc0 <= 0;            acc1 <= fracz;            acc2 <= fracz;            acc3 <= fracz;
             sft0 <= 0;            sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-32;
          end else if(sfti>=32)begin
@@ -176,25 +216,44 @@ module fmad
             sft0 <= sfti+16;      sft1 <= sfti+16;          sft2 <= 0;                sft3 <= 0;
          end
       end
+      if((req_command==13)&(en2))begin //FIX ME not piped (req_command, expN, sftoutN)
+         if(!sftout0)begin
+            exp0 <= {1'b0,x[30:23]} + {1'b0,x[14:7]};
+            acc0 <= add0;
+         end
+         if(!sftout1)begin
+            exp1 <= {1'b0,y[30:23]} + {1'b0,y[14:7]};
+            acc1 <= add1;
+         end
+         if(!sftout2)begin
+            exp2 <= {1'b0,z[30:23]} + {1'b0,z[14:7]};
+            acc2 <= add2;
+         end
+         if(!sftout3)begin
+            exp3 <= {1'b0,w[30:23]} + {1'b0,w[14:7]};
+            acc3 <= add3;
+         end
+      end
    end
-
-   reg [81:0]        alnmul;
-
-   reg [47:0]        aln0, aln1, aln2, aln3;
 
    always @ (*) begin
       aln0 = {acc0,16'h0}>>sft0;
       aln1 = {acc1,16'h0}>>sft1;
       aln2 = {acc2,16'h0}>>sft2;
       aln3 = {acc3,16'h0}>>sft3;
-
-      casez(mulctl)
-        2'b00: alnmul[81:0] = -{mul[47:0],32'h0};
-        2'b01: alnmul[81:0] =  {mul[47:0],32'h0};
-        2'b10: alnmul[81:0] = -{32'h0,mul[47:0]};
-        2'b11: alnmul[81:0] =  {32'h0,mul[47:0]};
-      endcase
    end
+
+   wire [81:0]       addi;
+
+   cpa cpa
+     (
+      .req_command(req_command),//FIX ME
+      .mul(mul),
+      .mulctl(mulctl),
+      .aln0(aln0),      .aln1(aln1),      .aln2(aln2),      .aln3(aln3),
+      .add0(add0),      .add1(add1),      .add2(add2),      .add3(add3),
+      .addo(addi)
+   );
 
    reg [81:0]        add;
    reg [8:0]         expr;
@@ -202,7 +261,7 @@ module fmad
 
    always @ (posedge clk) begin
       if(en1 & flag0[0])begin
-         add[81:0] <= alnmul + {1'b0, aln0[31:0], aln1[15:0], aln2[15:0], aln3[15:0]};
+         add[81:0] <= addi;
          sgnr <= sgnz;
          expr <= expa;
       end
