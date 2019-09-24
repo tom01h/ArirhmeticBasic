@@ -1,6 +1,12 @@
 #  FMA 演算器
+## 状況
+
+本来ならもっと CSA を使ってキャリー伝搬を減らすべきなのですが、記述が面倒なので CPA 使いまくりです。
+
+あと、bfloat16 の方はパイプ化できていません。
+
 ## 準備
-Windows Subsystem for Linux の Ubuntu 上で試しています 。
+
 #### TestFloat をビルド
 ```
 $ cd ${path_to_fam}/berkeley-softfloat-3/build/Linux-x86_64-GCC/
@@ -24,12 +30,22 @@ $ ${path_to_fam}/berkeley-testfloat-3/build/Linux-x86_64-GCC/testfloat_gen f32_m
 (略)
 ```
 
-## 検証の実行
+## Float32 の検証の実行
 
 1分ほどかかります。ログファイルは400MBくらいになります。波形は最初のほうしか出ません。
 
 ```
 $ cd ${path_to_fam}
 $ make
+$ ./berkeley-testfloat-3/build/Linux-x86_64-GCC/testfloat_gen f32_mulAdd | ./sim/Vfmad > LOG
+```
+
+## bfloat16 の検証の実行
+
+波形は最初のほうしか出ません。
+
+```
+$ cd ${path_to_fam}
+$ make TB=fmacc_tb.cpp
 $ ./berkeley-testfloat-3/build/Linux-x86_64-GCC/testfloat_gen f32_mulAdd | ./sim/Vfmad > LOG
 ```

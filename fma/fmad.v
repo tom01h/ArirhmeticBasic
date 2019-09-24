@@ -63,17 +63,20 @@ module fmad
    output reg [4:0]         flag
    );
 
-   reg               en0, en1, en2;
+   reg               en0, en1;
 
+   always @ (*) begin
+      if(reset)begin
+         en0 = 1'b0;
+      end else begin
+         en0 = req;
+      end
+   end
    always @ (posedge clk) begin
       if(reset)begin
-         en0 <= 1'b0;
          en1 <= 1'b0;
-         en2 <= 1'b0;
       end else begin
-         en0 <= req;
          en1 <= en0;
-         en2 <= en1;
       end
    end
 
@@ -119,9 +122,9 @@ module fmad
    wire [63:0]       muli;
 
    wire [31:0]       req_in_1 = ((req_command == 1) ? {8'h0,fracx[23:0]}
-                                 :                    {1'b1,x[6:0],  1'b1,y[6:0],  1'b1,x[6:0],  1'b1,w[6:0]});
+                                 :                    {1'b1,x[6:0],  1'b1,y[6:0],  1'b1,z[6:0],  1'b1,w[6:0]});
    wire [31:0]       req_in_2 = ((req_command == 1) ? {8'h0,fracy[23:0]}
-                                 :                    {1'b1,x[22:16],1'b1,y[22:16],1'b1,x[22:16],1'b1,w[22:16]});
+                                 :                    {1'b1,x[22:16],1'b1,y[22:16],1'b1,z[22:16],1'b1,w[22:16]});
 
    mulary mulary
      (
@@ -164,13 +167,18 @@ module fmad
    wire signed [9:0] exd2 = {1'b0,z[30:23]} + {1'b0,z[14:7]} - exp2 + 16;
    wire signed [9:0] exd3 = {1'b0,w[30:23]} + {1'b0,w[14:7]} - exp3 + 16;
 
-   wire sftout0 = (exd0<0) | (aln0[48:30]!={19{1'b0}}) & (aln0[48:30]!={19{1'b1}}); //FIX ME not piped
-   wire sftout1 = (exd1<0) | (aln1[48:30]!={19{1'b0}}) & (aln1[48:30]!={19{1'b1}}); //FIX ME not piped
-   wire sftout2 = (exd2<0) | (aln2[48:30]!={19{1'b0}}) & (aln2[48:30]!={19{1'b1}}); //FIX ME not piped
-   wire sftout3 = (exd3<0) | (aln3[48:30]!={19{1'b0}}) & (aln3[48:30]!={19{1'b1}}); //FIX ME not piped
+   wire sftout0 = ((x[30:23]==0)|(x[14:7]==0)|
+                   (exd0<0) | (aln0[48:30]!={19{1'b0}}) & (aln0[48:30]!={19{1'b1}})); //FIX ME not piped
+   wire sftout1 = ((y[30:23]==0)|(y[14:7]==0)|
+                   (exd1<0) | (aln1[48:30]!={19{1'b0}}) & (aln1[48:30]!={19{1'b1}})); //FIX ME not piped
+   wire sftout2 = ((z[30:23]==0)|(z[14:7]==0)|
+                   (exd2<0) | (aln2[48:30]!={19{1'b0}}) & (aln2[48:30]!={19{1'b1}})); //FIX ME not piped
+   wire sftout3 = ((w[30:23]==0)|(w[14:7]==0)|
+                   (exd3<0) | (aln3[48:30]!={19{1'b0}}) & (aln3[48:30]!={19{1'b1}})); //FIX ME not piped
 
    always @ (posedge clk) begin
-      if(en0 & flag0i[0])begin
+      //if(en0 & flag0i[0])begin
+      if(en0)begin
          if(req_command==13)begin
             mul <= muli;
          end else begin
@@ -216,7 +224,17 @@ module fmad
             sft0 <= sfti+16;      sft1 <= sfti+16;          sft2 <= 0;                sft3 <= 0;
          end
       end
-      if((req_command==13)&(en2))begin //FIX ME not piped (req_command, expN, sftoutN)
+
+      if(reset)begin
+         exp0 <= 0;
+         acc0 <= 0;
+         exp1 <= 0;
+         acc1 <= 0;
+         exp2 <= 0;
+         acc2 <= 0;
+         exp3 <= 0;
+         acc3 <= 0;
+      end else if((req_command==13)&(en1))begin //FIX ME not piped (req_command, expN, sftoutN)
          if(!sftout0)begin
             exp0 <= {1'b0,x[30:23]} + {1'b0,x[14:7]};
             acc0 <= add0;
@@ -237,10 +255,17 @@ module fmad
    end
 
    always @ (*) begin
-      aln0 = {acc0,16'h0}>>sft0;
-      aln1 = {acc1,16'h0}>>sft1;
-      aln2 = {acc2,16'h0}>>sft2;
-      aln3 = {acc3,16'h0}>>sft3;
+      if(req_command==1)begin
+         aln0 = {acc0,16'h0}>>sft0;
+         aln1 = {acc1,16'h0}>>sft1;
+         aln2 = {acc2,16'h0}>>sft2;
+         aln3 = {acc3,16'h0}>>sft3;
+      end else begin
+         aln0 = $signed({acc0,16'h0})>>>sft0;
+         aln1 = $signed({acc1,16'h0})>>>sft1;
+         aln2 = $signed({acc2,16'h0})>>>sft2;
+         aln3 = $signed({acc3,16'h0})>>>sft3;
+      end
    end
 
    wire [81:0]       addi;
@@ -296,34 +321,32 @@ module fmad
 
    wire [30:0]   rsltr = (~nrm0[64]) ? {expn,nrm0[62:40]}+rnd : {expn,~nrm0[62:40]}+rnd;
 
-   always @ (posedge clk) begin
-      if(en2) begin
-         rslt[31] <= sgnr^add[81];
-         flag <= 0;
-         if(flag1[0] == 1'b0)begin
-            rslt <= rslt1;
-            flag <= flag1;
-         end else if(nrmi==0)begin
-            rslt[31:0] <= 32'h00000000;
-         end else if(expn[9])begin
-            rslt[30:0] <= 31'h00000000;
-            flag[0] <= 1'b1;
-            flag[1] <= 1'b1;
-         end else if((expn[8:0]>=9'h0ff)&(~expn[9]))begin
-            rslt[30:0] <= 31'h7f800000;
-            flag[0] <= 1'b1;
-            flag[2] <= 1'b1;
-         end else if(~nrm0[64])begin
-            rslt[30:0] <= rsltr[30:0];
-            flag[0] <= |grsn[1:0] | (rsltr[30:23]==8'hff);
-            flag[1] <= ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&~ssn[1]))&(|grsn[1:0]);
-            flag[2] <= (rsltr[30:23]==8'hff);
-         end else begin
-            rslt[30:0] <= rsltr[30:0];
-            flag[0] <= |grsn[1:0] | (rsltr[30:23]==8'hff);
-            flag[1] <= ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&((~ssn[1]&~ssn[0])|(ssn[1]&ssn[0])) ))&(|grsn[1:0]);
-            flag[2] <= (rsltr[30:23]==8'hff);
-         end
+   always @ (*) begin
+      rslt[31] = sgnr^add[81];
+      flag = 0;
+      if(flag1[0] == 1'b0)begin
+         rslt = rslt1;
+         flag = flag1;
+      end else if(nrmi==0)begin
+         rslt[31:0] = 32'h00000000;
+      end else if(expn[9])begin
+         rslt[30:0] = 31'h00000000;
+         flag[0] = 1'b1;
+         flag[1] = 1'b1;
+      end else if((expn[8:0]>=9'h0ff)&(~expn[9]))begin
+         rslt[30:0] = 31'h7f800000;
+         flag[0] = 1'b1;
+         flag[2] = 1'b1;
+      end else if(~nrm0[64])begin
+         rslt[30:0] = rsltr[30:0];
+         flag[0] = |grsn[1:0] | (rsltr[30:23]==8'hff);
+         flag[1] = ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&~ssn[1]))&(|grsn[1:0]);
+         flag[2] = (rsltr[30:23]==8'hff);
+      end else begin
+         rslt[30:0] = rsltr[30:0];
+         flag[0] = |grsn[1:0] | (rsltr[30:23]==8'hff);
+         flag[1] = ((rsltr[30:23]==8'h00)|((expn[7:0]==8'h00)&((~ssn[1]&~ssn[0])|(ssn[1]&ssn[0])) ))&(|grsn[1:0]);
+         flag[2] = (rsltr[30:23]==8'hff);
       end
    end
 
