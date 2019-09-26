@@ -57,10 +57,10 @@ module fmad
    input [31:0]             y,
    input [31:0]             z,
    input [31:0]             w,
-   output reg signed [31:0] acc0, acc1, acc2, acc3,
-   output reg signed [ 9:0] exp0, exp1, exp2, exp3,
-   output reg [31:0]        rslt,
-   output reg [4:0]         flag
+   output reg signed [31:0] acc0, acc1, acc2, acc3, //BF16
+   output reg signed [ 9:0] exp0, exp1, exp2, exp3, //BF16
+   output reg [31:0]        rslt,                   //FP32
+   output reg [4:0]         flag                    //FP32
    );
 
    reg               en0, en1;
@@ -80,10 +80,10 @@ module fmad
       end
    end
 
-   wire[4:0]         flag0i;
-   wire [31:0]       rslt0i;
-   reg [4:0]         flag0, flag1;
-   reg [31:0]        rslt0, rslt1;
+   wire[4:0]         flag0i;                   //FP32
+   wire [31:0]       rslt0i;                   //FP32
+   reg [4:0]         flag0, flag1;             //FP32
+   reg [31:0]        rslt0, rslt1;             //FP32
 
    fmad_check fmad_check
      (
@@ -109,15 +109,15 @@ module fmad
       end
    end
 
-   wire [23:0]       fracx = {(x[30:23]!=8'h00),x[22:0]};
-   wire [23:0]       fracy = {(y[30:23]!=8'h00),y[22:0]};
-   wire [31:0]       fracz = {(z[30:23]!=8'h00),z[22:0],8'h0};
+   wire [23:0]       fracx = {(x[30:23]!=8'h00),x[22:0]};                   //FP32
+   wire [23:0]       fracy = {(y[30:23]!=8'h00),y[22:0]};                   //FP32
+   wire [31:0]       fracz = {(z[30:23]!=8'h00),z[22:0],8'h0};              //FP32
 
-   wire [7:0]        expx =       (x[30:23]==8'h00) ? 8'h01 : x[30:23];
-   wire [7:0]        expy =       (y[30:23]==8'h00) ? 8'h01 : y[30:23];
-   wire signed [8:0] expz = {1'b0,(z[30:23]==8'h00) ? 8'h01 : z[30:23]};
-   wire signed [9:0] expm = expx+expy-127+1;
-   wire signed [9:0] expd = expm-expz;
+   wire [7:0]        expx =       (x[30:23]==8'h00) ? 8'h01 : x[30:23];     //FP32
+   wire [7:0]        expy =       (y[30:23]==8'h00) ? 8'h01 : y[30:23];     //FP32
+   wire signed [8:0] expz = {1'b0,(z[30:23]==8'h00) ? 8'h01 : z[30:23]};    //FP32
+   wire signed [9:0] expm = expx+expy-127+1;                                //FP32
+   wire signed [9:0] expd = expm-expz;                                      //FP32
 
    wire [63:0]       muli;
 
@@ -150,11 +150,32 @@ module fmad
       end
    end
 
-//   reg [31:0]        acc0, acc1, acc2, acc3;
    reg [5:0]         sft0, sft1, sft2, sft3;
 
-   reg [8:0]         expa;
-   reg               sgnz;
+   reg [8:0]         expa;                                                              //FP32
+   reg               sgnz;                                                              //FP32
+
+   wire signed [9:0] exp0p = {1'b0,x[30:23]} + {1'b0,x[14:7]};                          //BF16
+   wire signed [9:0] exp1p = {1'b0,y[30:23]} + {1'b0,y[14:7]};                          //BF16
+   wire signed [9:0] exp2p = {1'b0,z[30:23]} + {1'b0,z[14:7]};                          //BF16
+   wire signed [9:0] exp3p = {1'b0,w[30:23]} + {1'b0,w[14:7]};                          //BF16
+
+   reg signed [9:0]  exp0l, exp1l, exp2l, exp3l;                                        //BF16
+
+   wire sftout0 = ((exp0l==0) | (aln0[48:30]!={19{1'b0}}) & (aln0[48:30]!={19{1'b1}})); //BF16
+   wire sftout1 = ((exp1l==0) | (aln1[48:30]!={19{1'b0}}) & (aln1[48:30]!={19{1'b1}})); //BF16
+   wire sftout2 = ((exp2l==0) | (aln2[48:30]!={19{1'b0}}) & (aln2[48:30]!={19{1'b1}})); //BF16
+   wire sftout3 = ((exp3l==0) | (aln3[48:30]!={19{1'b0}}) & (aln3[48:30]!={19{1'b1}})); //BF16
+
+   wire signed [9:0] exp0i = (!sftout0) ? exp0 : exp0l;                                 //BF16
+   wire signed [9:0] exp1i = (!sftout1) ? exp1 : exp1l;                                 //BF16
+   wire signed [9:0] exp2i = (!sftout2) ? exp2 : exp2l;                                 //BF16
+   wire signed [9:0] exp3i = (!sftout3) ? exp3 : exp3l;                                 //BF16
+
+   wire signed [9:0] exd0 = exp0p - exp0i + 16;                                         //BF16
+   wire signed [9:0] exd1 = exp1p - exp1i + 16;                                         //BF16
+   wire signed [9:0] exd2 = exp2p - exp2i + 16;                                         //BF16
+   wire signed [9:0] exd3 = exp3p - exp3i + 16;                                         //BF16
 
    reg [63:0]        mul;
    reg [4:0]         mulctl;
@@ -162,66 +183,66 @@ module fmad
    reg [48:0]        aln0, aln1, aln2, aln3;
    wire [31:0]       add0, add1, add2, add3;
 
-   wire signed [9:0] exd0 = {1'b0,x[30:23]} + {1'b0,x[14:7]} - exp0 + 16;
-   wire signed [9:0] exd1 = {1'b0,y[30:23]} + {1'b0,y[14:7]} - exp1 + 16;
-   wire signed [9:0] exd2 = {1'b0,z[30:23]} + {1'b0,z[14:7]} - exp2 + 16;
-   wire signed [9:0] exd3 = {1'b0,w[30:23]} + {1'b0,w[14:7]} - exp3 + 16;
-
-   wire sftout0 = ((x[30:23]==0)|(x[14:7]==0)|
-                   (exd0<0) | (aln0[48:30]!={19{1'b0}}) & (aln0[48:30]!={19{1'b1}})); //FIX ME not piped
-   wire sftout1 = ((y[30:23]==0)|(y[14:7]==0)|
-                   (exd1<0) | (aln1[48:30]!={19{1'b0}}) & (aln1[48:30]!={19{1'b1}})); //FIX ME not piped
-   wire sftout2 = ((z[30:23]==0)|(z[14:7]==0)|
-                   (exd2<0) | (aln2[48:30]!={19{1'b0}}) & (aln2[48:30]!={19{1'b1}})); //FIX ME not piped
-   wire sftout3 = ((w[30:23]==0)|(w[14:7]==0)|
-                   (exd3<0) | (aln3[48:30]!={19{1'b0}}) & (aln3[48:30]!={19{1'b1}})); //FIX ME not piped
-
    always @ (posedge clk) begin
-      //if(en0 & flag0i[0])begin
       if(en0)begin
+         if(req_command==13)begin
+            if((x[30:23]==0)|(x[14:7]==0)|(exd0<0))  exp0l <= 0;
+            else                                     exp0l <= exp0p;
+            if((y[30:23]==0)|(y[14:7]==0)|(exd1<0))  exp1l <= 0;
+            else                                     exp1l <= exp1p;
+            if((z[30:23]==0)|(z[14:7]==0)|(exd2<0))  exp2l <= 0;
+            else                                     exp2l <= exp2p;
+            if((w[30:23]==0)|(w[14:7]==0)|(exd3<0))  exp3l <= 0;
+            else                                     exp3l <= exp3p;
+         end
+
          if(req_command==13)begin
             mul <= muli;
          end else begin
             mul <= {16'h0,muli[47:0]};
          end
-         sgnz <= z[31];
-         if(expd>=0)begin
-            expa <= expm;
-         end else if(expd>=-32)begin
-            expa <= expm+32;
-         end else begin
-            expa <= expz;
+
+         if(req_command==1)begin
+            sgnz <= z[31];
+            if(expd>=0)begin
+               expa <= expm;
+            end else if(expd>=-32)begin
+               expa <= expm+32;
+            end else begin
+               expa <= expz;
+            end
          end
 
          if(req_command==13)begin
             mulctl <= {1'b1,x[31]^x[15], y[31]^y[15], z[31]^z[15], w[31]^w[15]};
-         end else if(expd>=0)begin
-            mulctl <= {1'b0,{4{(x[31]^y[31]^z[31])}}};
          end else begin
-            mulctl <= {1'b1,{4{(x[31]^y[31]^z[31])}}};
+            if(expd>=0) mulctl <= {1'b0,{4{(x[31]^y[31]^z[31])}}};
+            else        mulctl <= {1'b1,{4{(x[31]^y[31]^z[31])}}};
          end
 
          if(req_command==13)begin
             if(exd0[9:6]!=0) sft0 <= 63;
-            else             sft0 <= {1'b0,x[30:23]} + {1'b0,x[14:7]} - exp0 + 16;
+            else             sft0 <= exd0;
             if(exd1[9:6]!=0) sft1 <= 63;
-            else             sft1 <= {1'b0,y[30:23]} + {1'b0,y[14:7]} - exp1 + 16;
+            else             sft1 <= exd1;
             if(exd2[9:6]!=0) sft2 <= 63;
-            else             sft2 <= {1'b0,z[30:23]} + {1'b0,z[14:7]} - exp2 + 16;
+            else             sft2 <= exd2;
             if(exd3[9:6]!=0) sft3 <= 63;
-            else             sft3 <= {1'b0,w[30:23]} + {1'b0,w[14:7]} - exp3 + 16;
-         end else if(sfti>=48)begin
-            acc0 <= 0;            acc1 <= fracz;            acc2 <= fracz;            acc3 <= fracz;
-            sft0 <= 0;            sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-32;
-         end else if(sfti>=32)begin
-            acc0 <= fracz;        acc1 <= fracz;            acc2 <= fracz;            acc3 <= {fracz,16'h0};
-            sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-16;
-         end else if(sfti>=16)begin
-            acc0 <= fracz;        acc1 <= fracz;            acc2 <= {fracz,16'h0};    acc3 <= 0;
-            sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti;             sft3 <= 0;
+            else             sft3 <= exd3;
          end else begin
-            acc0 <= fracz;        acc1 <= {fracz,16'h0};    acc2 <= 0;                acc3 <= 0;
-            sft0 <= sfti+16;      sft1 <= sfti+16;          sft2 <= 0;                sft3 <= 0;
+            if(sfti>=48)begin
+               acc0 <= 0;            acc1 <= fracz;            acc2 <= fracz;            acc3 <= fracz;
+               sft0 <= 0;            sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-32;
+            end else if(sfti>=32)begin
+               acc0 <= fracz;        acc1 <= fracz;            acc2 <= fracz;            acc3 <= {fracz,16'h0};
+               sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti-16;          sft3 <= sfti-16;
+            end else if(sfti>=16)begin
+               acc0 <= fracz;        acc1 <= fracz;            acc2 <= {fracz,16'h0};    acc3 <= 0;
+               sft0 <= sfti+16;      sft1 <= sfti;             sft2 <= sfti;             sft3 <= 0;
+            end else begin
+               acc0 <= fracz;        acc1 <= {fracz,16'h0};    acc2 <= 0;                acc3 <= 0;
+               sft0 <= sfti+16;      sft1 <= sfti+16;          sft2 <= 0;                sft3 <= 0;
+            end
          end
       end
 
@@ -234,28 +255,28 @@ module fmad
          acc2 <= 0;
          exp3 <= 0;
          acc3 <= 0;
-      end else if((req_command==13)&(en1))begin //FIX ME not piped (req_command, expN, sftoutN)
+      end else if((req_command==13)&(en1))begin //FIX ME (req_command)
          if(!sftout0)begin
-            exp0 <= {1'b0,x[30:23]} + {1'b0,x[14:7]};
+            exp0 <= exp0l;
             acc0 <= add0;
          end
          if(!sftout1)begin
-            exp1 <= {1'b0,y[30:23]} + {1'b0,y[14:7]};
+            exp1 <= exp1l;
             acc1 <= add1;
          end
          if(!sftout2)begin
-            exp2 <= {1'b0,z[30:23]} + {1'b0,z[14:7]};
+            exp2 <= exp2l;
             acc2 <= add2;
          end
          if(!sftout3)begin
-            exp3 <= {1'b0,w[30:23]} + {1'b0,w[14:7]};
+            exp3 <= exp3l;
             acc3 <= add3;
          end
       end
    end
 
    always @ (*) begin
-      if(req_command==1)begin
+      if(req_command==1)begin //FIX ME (req_command)
          aln0 = {acc0,16'h0}>>sft0;
          aln1 = {acc1,16'h0}>>sft1;
          aln2 = {acc2,16'h0}>>sft2;
@@ -272,7 +293,7 @@ module fmad
 
    cpa cpa
      (
-      .req_command(req_command),//FIX ME
+      .req_command(req_command),  //FIX ME (req_command)
       .mul(mul),
       .mulctl(mulctl),
       .aln0(aln0),      .aln1(aln1),      .aln2(aln2),      .aln3(aln3),
